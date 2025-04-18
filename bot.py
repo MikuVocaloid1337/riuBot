@@ -1,12 +1,15 @@
 import os
-from aiogram import Bot, Dispatcher, types, executor
+import asyncio
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
+from aiogram.types import Message
 from dotenv import load_dotenv
 
-# Загрузка токена из .env
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN))
+dp = Dispatcher()
 
 # --- ДАННЫЕ ---
 skins = {
@@ -28,8 +31,7 @@ skins = {
             {"name": "Puchi heaven set", "parts": ["Mid", "Low"]},
             {"name": "Bruno set", "parts": ["Mid", "Low"]},
             {"name": "Fugo set", "parts": ["Mid", "Low"]},
-        ],
-        # Остальные категории аналогично добавь при необходимости
+        ]
     },
     "itm": {
         "SS+": ["Green baby"],
@@ -53,7 +55,7 @@ lookings = {}
 admins = set()
 adm_codes = {"#VagueOwner", "#ShapkaKrutoi", "#MikuPikuBeam"}
 
-# --- ПОДДЕРЖКА КОМАНД ---
+# --- ХЕЛПЕРЫ ---
 def format_catalog():
     result = []
     for typ, categories in skins.items():
@@ -62,18 +64,20 @@ def format_catalog():
             result.append(f"  Редкость: {rarity}")
             for item in items:
                 if isinstance(item, str):
-                    result.append(f"    " + item + "")
+                    result.append(f"    {item}")
                 elif isinstance(item, dict):
                     result.append(f"    {item['name']}")
                     result.append("     " + ", ".join(item["parts"]))
     return "\n".join(result)
 
-@dp.message_handler(commands=['start'])
-async def start(msg: types.Message):
-    await msg.reply("Бот активен. Напиши /help для списка команд.")
+# --- ХЕНДЛЕРЫ ---
 
-@dp.message_handler(commands=['help'])
-async def help_command(msg: types.Message):
+@dp.message(lambda msg: msg.text.startswith("/start"))
+async def start(msg: Message):
+    await msg.answer("Бот активен. Напиши /help для списка команд.")
+
+@dp.message(lambda msg: msg.text.startswith("/help"))
+async def help_command(msg: Message):
     text = (
         "Основные команды:\n"
         "/help — показать эту справку\n"
@@ -87,83 +91,48 @@ async def help_command(msg: types.Message):
         "+трейд сет 77 rings set: Top, Mid\n"
         "+lf сет 77 rings set: Mid, Low"
     )
-    await msg.reply(text)
+    await msg.answer(text)
 
-@dp.message_handler(lambda msg: msg.text.startswith("+трейд"))
-async def add_trade(msg: types.Message):
+@dp.message(lambda msg: msg.text.startswith("+трейд"))
+async def add_trade(msg: Message):
     user_id = msg.from_user.id
     lines = msg.text.split("\n")[1:] if "\n" in msg.text else [msg.text[7:]]
     offers[user_id] = offers.get(user_id, [])
     for line in lines:
         offers[user_id].append(line.strip())
-    await msg.reply("Добавлено в трейд.")
+    await msg.answer("Добавлено в трейд.")
 
-@dp.message_handler(lambda msg: msg.text.startswith("+lf"))
-async def add_lf(msg: types.Message):
+@dp.message(lambda msg: msg.text.startswith("+lf"))
+async def add_lf(msg: Message):
     user_id = msg.from_user.id
     lines = msg.text.split("\n")[1:] if "\n" in msg.text else [msg.text[4:]]
     lookings[user_id] = lookings.get(user_id, [])
     for line in lines:
         lookings[user_id].append(line.strip())
-    await msg.reply("Добавлено в лф.")
+    await msg.answer("Добавлено в лф.")
 
-@dp.message_handler(lambda msg: msg.text == "!трейд")
-async def show_trade(msg: types.Message):
+@dp.message(lambda msg: msg.text == "!трейд")
+async def show_trade(msg: Message):
     user_id = msg.from_user.id
     trades = offers.get(user_id, [])
     if not trades:
-        await msg.reply("Трейд пуст.")
+        await msg.answer("Трейд пуст.")
     else:
-        await msg.reply("Твой трейд:\n" + "\n".join(f"- {t}" for t in trades), parse_mode='Markdown')
+        await msg.answer("Твой трейд:\n" + "\n".join(f"- {t}" for t in trades))
 
-@dp.message_handler(lambda msg: msg.text == "!лф")
-async def show_lf(msg: types.Message):
+@dp.message(lambda msg: msg.text == "!лф")
+async def show_lf(msg: Message):
     user_id = msg.from_user.id
     lfs = lookings.get(user_id, [])
     if not lfs:
-        await msg.reply("Лф пуст.")
+        await msg.answer("Лф пуст.")
     else:
-        await msg.reply("Ты ищешь:\n" + "\n".join(f"- {t}" for t in lfs), parse_mode='Markdown')
+        await msg.answer("Ты ищешь:\n" + "\n".join(f"- {t}" for t in lfs))
 
-@dp.message_handler(lambda msg: msg.text == "!очистить трейд")
-async def clear_trade(msg: types.Message):
+@dp.message(lambda msg: msg.text == "!очистить трейд")
+async def clear_trade(msg: Message):
     user_id = msg.from_user.id
     offers[user_id] = []
-    await msg.reply("Трейд очищен.")
+    await msg.answer("Трейд очищен.")
 
-@dp.message_handler(lambda msg: msg.text == "!очистить лф")
-async def clear_lf(msg: types.Message):
-    user_id = msg.from_user.id
-    lookings[user_id] = []
-    await msg.reply("Лф очищен.")
-
-@dp.message_handler(lambda msg: msg.text.lower() in ["ss ст", "s вп", "сет a+", "itm b+", "крф s+"])
-async def show_catalog(msg: types.Message):
-    await msg.reply(format_catalog(), parse_mode='Markdown')
-
-@dp.message_handler(lambda msg: msg.text.startswith("#VagueMessage"))
-async def vague_message(msg: types.Message):
-    if msg.chat.type != "private" or msg.from_user.id not in admins:
-        return
-    await msg.reply("Дай ссылку куда скинуть твой текст")
-
-    @dp.message_handler()
-    async def get_chat_link(m1: types.Message):
-        chat_link = m1.text
-        await m1.reply("Дай текст который ты хочешь опубликовать в этом чате")
-
-        @dp.message_handler()
-        async def get_text(m2: types.Message):
-            await bot.send_message(chat_link, m2.text)
-
-@dp.message_handler(lambda msg: msg.text in adm_codes)
-async def activate_admin(msg: types.Message):
-    user_id = msg.from_user.id
-    admins.add(user_id)
-    adm_codes.remove(msg.text)
-    await msg.reply("Теперь ты админ. Тебе доступны админ-команды.")
-
-if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
-    print("Бот запущен.")
-    # Запуск бота
+@dp.message(lambda msg: msg.text == "!очистить лф")
