@@ -136,3 +136,25 @@ async def clear_trade(msg: Message):
     await msg.answer("Трейд очищен.")
 
 @dp.message(lambda msg: msg.text == "!очистить лф")
+async def clear_lf(msg: Message):
+    user_id = msg.from_user.id
+    lookings[user_id] = []
+    await msg.answer("Лф очищен.")
+
+@dp.message(lambda msg: msg.text.lower() in ["ss ст", "s вп", "сет a+", "itm b+", "крф s+"])
+async def show_catalog(msg: Message):
+    await msg.answer(format_catalog())
+
+@dp.message(lambda msg: msg.text in adm_codes)
+async def activate_admin(msg: Message):
+    user_id = msg.from_user.id
+    admins.add(user_id)
+    adm_codes.remove(msg.text)
+    await msg.answer("Теперь ты админ. Тебе доступны админ-команды.")
+
+# --- Точка входа ---
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
