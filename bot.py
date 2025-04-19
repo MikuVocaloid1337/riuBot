@@ -76,11 +76,11 @@ def format_catalog():
 async def start(msg: Message):
     await msg.answer("Бот активен. Напиши /help для списка команд.")
 
-@dp.message(lambda msg: msg.text.startswith("/help"))
+@dp.message(lambda msg: msg.text.startswith("!help"))
 async def help_command(msg: Message):
     text = (
         "Основные команды:\n"
-        "/help — показать эту справку\n"
+        "!help — показать эту справку\n"
         "!трейд — показать твой трейд\n"
         "!лф — показать твой лф\n"
         "!очистить трейд — очистить трейд\n"
